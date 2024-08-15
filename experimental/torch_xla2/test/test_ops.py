@@ -332,7 +332,6 @@ skiplist = {
     "deg2rad",
     "diagonal",
     "dot",
-    "dsplit",
     "dstack",
     "einsum",
     "erf",
