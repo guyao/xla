@@ -5,6 +5,7 @@
 #include <map>
 
 #include "torch/csrc/lazy/core/util.h"
+#include "torch_xla/csrc/XLANativeFunctions.h"  // piz for unsqueeze
 #include "torch_xla/csrc/aten_xla_bridge.h"
 #include "torch_xla/csrc/convert_ops.h"
 #include "torch_xla/csrc/device.h"
@@ -114,6 +115,7 @@ std::shared_ptr<torch::lazy::Value> CreateToken(
 
 at::Tensor all_reduce(const at::Tensor& self, std::string reduceOp,
                       std::string /*group_name*/) {
+  std::cout << "trigger all_reduce lower" << std::endl;
   TORCH_LAZY_FN_COUNTER_TIMED_TRACING("xla::");
   auto self_tensor = bridge::GetXlaTensor(self);
   // TODO(alanwaketan): Use group_name to generate groups. Currently we just
@@ -252,6 +254,23 @@ AllGatherResult BuildAllGather(xla::XlaOp input, xla::XlaOp token, int64_t dim,
                        shard_count, reduce_groups);
   }
   return {all_gather_result, token_handler.GetNewToken(all_gather_result)};
+}
+
+// function signature should match torch/csrc/distributed/c10d/Functional.cpp
+at::Tensor all_gather_into_tensor(const at::Tensor& self, int64_t group_size,
+                                  std::string group_name) {
+  TORCH_LAZY_FN_COUNTER("xla::");
+  std::cout << "trigger all_gather_into_tensor lower" << std::endl;
+  auto self_tensor = bridge::GetXlaTensor(self);
+  std::vector<int64_t> all_groups(group_size);
+  std::iota(all_groups.begin(), all_groups.end(), 0);
+  auto result = tensor_methods::all_gather(self_tensor, 0, group_size,
+                                           {all_groups}, true);
+  return bridge::AtenFromXlaTensor(result);
+}
+
+TORCH_LIBRARY_IMPL(_c10d_functional, XLA, m) {
+  m.impl("all_gather_into_tensor", all_gather_into_tensor);
 }
 
 AllGatherResultCoalesced BuildAllGatherCoalesced(

@@ -46,6 +46,13 @@ class ProcessGroupXla(ProcessGroup):
   def getBackendName(self):
     return 'xla'
 
+  def _set_group_name(self, name: str) -> None:
+    self._group_name = name
+
+  @property
+  def group_name(self):
+    return self._group_name
+
   def _get_reduce_type(self, reduce_op):
     if reduce_op == dist.ReduceOp.SUM:
       return xm.REDUCE_SUM
@@ -66,10 +73,13 @@ class ProcessGroupXla(ProcessGroup):
 
   def allreduce(self, tensors, all_reduce_options):
     reduce_type = self._get_reduce_type(all_reduce_options.reduceOp)
-
     # TODO(hjm-aws): implement all_reduce_options.timeout.
-    xm.all_reduce(reduce_type, tensors, groups=self._mesh, pin_layout=False)
-    return _ret_work(tensors)
+    return xm.all_reduce(
+        reduce_type, tensors, groups=self._mesh, pin_layout=False)
+
+  # method for dist.all_gather_into_tensor under eager mode.
+  def _allgather_base(self, output_tensor, input_tensor, opts):
+    return self.allgather(output_tensor, input_tensor, opts)
 
   def allgather(self, output_tensors_list, input_tensors, opts=None):
     for input_tensor, output_tensors in zip(input_tensors, output_tensors_list):
