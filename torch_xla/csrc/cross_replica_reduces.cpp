@@ -115,7 +115,6 @@ std::shared_ptr<torch::lazy::Value> CreateToken(
 
 at::Tensor all_reduce(const at::Tensor& self, std::string reduceOp,
                       std::string /*group_name*/) {
-  std::cout << "trigger all_reduce lower" << std::endl;
   TORCH_LAZY_FN_COUNTER_TIMED_TRACING("xla::");
   auto self_tensor = bridge::GetXlaTensor(self);
   // TODO(alanwaketan): Use group_name to generate groups. Currently we just
@@ -260,7 +259,6 @@ AllGatherResult BuildAllGather(xla::XlaOp input, xla::XlaOp token, int64_t dim,
 at::Tensor all_gather_into_tensor(const at::Tensor& self, int64_t group_size,
                                   std::string group_name) {
   TORCH_LAZY_FN_COUNTER("xla::");
-  std::cout << "trigger all_gather_into_tensor lower" << std::endl;
   auto self_tensor = bridge::GetXlaTensor(self);
   std::vector<int64_t> all_groups(group_size);
   std::iota(all_groups.begin(), all_groups.end(), 0);
