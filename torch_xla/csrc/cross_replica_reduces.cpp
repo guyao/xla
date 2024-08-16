@@ -5,7 +5,6 @@
 #include <map>
 
 #include "torch/csrc/lazy/core/util.h"
-#include "torch_xla/csrc/XLANativeFunctions.h"  // piz for unsqueeze
 #include "torch_xla/csrc/aten_xla_bridge.h"
 #include "torch_xla/csrc/convert_ops.h"
 #include "torch_xla/csrc/device.h"
