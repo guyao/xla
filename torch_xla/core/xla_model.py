@@ -451,10 +451,6 @@ def all_reduce(
     else:
       return inputs
 
-  # Using dist.all_reduce entry, the input will be updated to List[torch.Tensor],
-  # with length = 1.
-  if isinstance(inputs, List):
-    inputs = inputs[0]
   if isinstance(inputs, torch.Tensor):
     result = None
     if scale == 1.0 and groups == [] and pin_layout:

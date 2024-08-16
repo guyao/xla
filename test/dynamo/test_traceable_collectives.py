@@ -19,11 +19,11 @@ def dummy_collective_fn_xm(input):
   return res_tensor
 
 
-def dummy_collective_fn_dist(input):
+def dummy_collective_fn_dist(input, async_op):
   # TODO(JackCaoG, zpcore): fix the issue dist.all_reduce issue with openxla backend
-  reduce_tensor = dist.all_reduce(input, dist.ReduceOp.SUM)
+  reduce_tensor = dist.all_reduce(input, dist.ReduceOp.SUM, async_op=async_op)
   output_tensor = torch.empty((1, xr.world_size()))
-  dist.all_gather_into_tensor(output_tensor, input, None)
+  dist.all_gather_into_tensor(output_tensor, input, None, async_op=async_op)
   return output_tensor
 
 
@@ -66,18 +66,18 @@ def _mp_fn_dist(index):
   dist.init_process_group("xla", init_method='xla://')
   device = xm.xla_device()
   world_size = xr.world_size()
-  for test_mode in ['dynamo', 'eager']:
+  for test_mode in ['eager', 'dynamo']:
     if xm.xla_device_hw(device) not in ('TPU', 'CUDA', 'NEURON'):
       print(f'skip this test for hw {xm.xla_device_hw(device)}')
       return
     ordinal_tensor = torch.tensor([index], dtype=torch.float).to(device)
     met.clear_all()
     if test_mode == 'eager':
-      res_tensor = dummy_collective_fn_dist(ordinal_tensor)
+      res_tensor = dummy_collective_fn_dist(ordinal_tensor, async_op=True)
     elif test_mode == 'dynamo':
       compiled_collective = torch.compile(
           dummy_collective_fn_dist, backend=my_compiler)
-      res_tensor = compiled_collective(ordinal_tensor)
+      res_tensor = compiled_collective(ordinal_tensor, async_op=False)
     print(res_tensor)
     expected_tensor = torch.tensor(
         [world_size * world_size / 2] * world_size, dtype=torch.float)
