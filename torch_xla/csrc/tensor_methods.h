@@ -79,6 +79,11 @@ std::pair<std::vector<XLATensorPtr>, torch::lazy::Value> all_gather_coalesced(
     int64_t dim, int64_t shard_count, std::vector<std::vector<int64_t>> groups,
     bool pin_layout);
 
+// remove the token from signature.
+std::vector<XLATensorPtr> all_gather_coalesced_wrapper(
+    const std::vector<XLATensorPtr>& inputs, int64_t dim, int64_t shard_count,
+    std::vector<std::vector<int64_t>> groups, bool pin_layout);
+
 torch::lazy::Value all_gather_coalesced_out(
     std::vector<XLATensorPtr>& outputs, const std::vector<XLATensorPtr>& inputs,
     const torch::lazy::Value& token, int64_t dim, int64_t shard_count,

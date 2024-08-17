@@ -270,6 +270,21 @@ TORCH_LIBRARY_IMPL(_c10d_functional, XLA, m) {
   m.impl("all_gather_into_tensor", all_gather_into_tensor);
 }
 
+std::vector<at::Tensor> all_gather_into_tensor_coalesced(
+    std::vector<at::Tensor> self, int64_t group_size, std::string group_name) {
+  TORCH_LAZY_FN_COUNTER("xla::");
+  auto self_tensor = bridge::GetXlaTensors(self);
+  std::vector<int64_t> all_groups(group_size);
+  std::iota(all_groups.begin(), all_groups.end(), 0);
+  auto result = tensor_methods::all_gather_coalesced_wrapper(
+      self_tensor, 0, group_size, {all_groups}, true);
+  return bridge::AtenFromXlaTensors(result);
+}
+
+TORCH_LIBRARY_IMPL(_c10d_functional, XLA, m) {
+  m.impl("all_gather_into_tensor_coalesced", all_gather_into_tensor_coalesced);
+}
+
 AllGatherResultCoalesced BuildAllGatherCoalesced(
     absl::Span<const xla::XlaOp> inputs, xla::XlaOp token, int64_t dim,
     int64_t shard_count, const std::vector<std::vector<int64_t>>& groups,

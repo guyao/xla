@@ -74,8 +74,9 @@ class ProcessGroupXla(ProcessGroup):
   def allreduce(self, tensors, all_reduce_options):
     reduce_type = self._get_reduce_type(all_reduce_options.reduceOp)
     # TODO(hjm-aws): implement all_reduce_options.timeout.
-    return xm.all_reduce(
+    result = xm.all_reduce(
         reduce_type, tensors, groups=self._mesh, pin_layout=False)
+    return _ret_work(result)
 
   # method for dist.all_gather_into_tensor under eager mode.
   def _allgather_base(self, output_tensor, input_tensor, opts):

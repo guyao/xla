@@ -533,6 +533,17 @@ std::pair<std::vector<XLATensorPtr>, torch::lazy::Value> all_gather_coalesced(
   return {result, torch::lazy::Value(node, inputs.size())};
 }
 
+std::vector<XLATensorPtr> all_gather_coalesced_wrapper(
+    const std::vector<XLATensorPtr>& inputs, int64_t dim, int64_t shard_count,
+    std::vector<std::vector<int64_t>> groups, bool pin_layout) {
+  auto [res_node, token_node] =
+      all_gather_coalesced(inputs, GetAllReduceToken(inputs[0]->GetDevice()),
+                           dim, shard_count, groups, pin_layout);
+  SetAllReduceToken(inputs[0]->GetDevice(),
+                    std::make_shared<torch::lazy::Value>(token_node));
+  return res_node;
+}
+
 torch::lazy::Value all_gather_coalesced_out(
     std::vector<XLATensorPtr>& outputs, const std::vector<XLATensorPtr>& inputs,
     const torch::lazy::Value& token, int64_t dim, int64_t shard_count,

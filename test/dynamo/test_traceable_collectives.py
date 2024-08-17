@@ -7,11 +7,6 @@ import torch_xla.core.xla_model as xm
 import torch_xla.debug.metrics as met
 
 
-def my_compiler(gm: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
-  # gm.graph.print_tabular()
-  return gm.forward
-
-
 def dummy_collective_fn_xm(input):
   res_tensor = xm.all_reduce(xm.REDUCE_SUM, input)
   res_tensor += 3.0
@@ -19,11 +14,13 @@ def dummy_collective_fn_xm(input):
   return res_tensor
 
 
-def dummy_collective_fn_dist(input, async_op):
-  # TODO(JackCaoG, zpcore): fix the issue dist.all_reduce issue with openxla backend
-  reduce_tensor = dist.all_reduce(input, dist.ReduceOp.SUM, async_op=async_op)
+def dummy_collective_fn_dist(input):
+  # zpcore: We can't use the return value from dist.xxx. The result value will be a `work` object from
+  # the dist function call: https://github.com/pytorch/pytorch/blob/018e48c337094c8800483f1e577a1ec241982001/torch/distributed/distributed_c10d.py#L2501-L2506
+  dist.all_reduce(input, dist.ReduceOp.SUM)  # input update in place
+  input += 3.0
   output_tensor = torch.empty((1, xr.world_size()))
-  dist.all_gather_into_tensor(output_tensor, input, None, async_op=async_op)
+  dist.all_gather_into_tensor(output_tensor, input, None)
   return output_tensor
 
 
@@ -73,19 +70,20 @@ def _mp_fn_dist(index):
     ordinal_tensor = torch.tensor([index], dtype=torch.float).to(device)
     met.clear_all()
     if test_mode == 'eager':
-      res_tensor = dummy_collective_fn_dist(ordinal_tensor, async_op=True)
+      # no need to invoke works' wait operation in torch.
+      res_tensor = dummy_collective_fn_dist(ordinal_tensor)
     elif test_mode == 'dynamo':
       compiled_collective = torch.compile(
-          dummy_collective_fn_dist, backend=my_compiler)
-      res_tensor = compiled_collective(ordinal_tensor, async_op=False)
-    print(res_tensor)
+          dummy_collective_fn_dist, backend='openxla')
+      res_tensor = compiled_collective(ordinal_tensor)
     expected_tensor = torch.tensor(
-        [world_size * world_size / 2] * world_size, dtype=torch.float)
+        [world_size * world_size / 2] * world_size, dtype=torch.float) + 3.0
     torch_xla.sync()
     torch.allclose(res_tensor.cpu(), expected_tensor)
+    # TODO (JackCaoG): fix CI issue and uncomment below.
     # assert met.metric_data("ExecuteTime")[0] == 1
 
 
 if __name__ == '__main__':
   torch_xla.launch(_mp_fn, args=())
-  torch_xla.launch(_mp_fn_dist, args=())
+  torch_xla.launch(_mp_fn_dist, args=(), debug_single_process=False)
